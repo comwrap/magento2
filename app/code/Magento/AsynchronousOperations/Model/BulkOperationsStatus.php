@@ -8,9 +8,11 @@ declare(strict_types=1);
 
 namespace Magento\AsynchronousOperations\Model;
 
+use Magento\AsynchronousOperations\Api\BulkSummaryRepositoryInterface;
 use Magento\AsynchronousOperations\Api\Data\BulkOperationsStatusInterface;
 use Magento\AsynchronousOperations\Api\Data\DetailedBulkOperationsStatusInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\AsynchronousOperations\Model\Repository\Registry as BulkRepositoryRegistry;
+use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\EntityManager\EntityManager;
 use Magento\AsynchronousOperations\Api\Data\BulkOperationsStatusInterfaceFactory as BulkStatusShortFactory;
 use Magento\AsynchronousOperations\Api\Data\DetailedBulkOperationsStatusInterfaceFactory as BulkStatusDetailedFactory;
@@ -49,6 +51,21 @@ class BulkOperationsStatus implements BulkStatusInterface
     private $operationCollectionFactory;
 
     /**
+     * @var BulkSummaryRepositoryInterface
+     */
+    private $bulkSummaryRepository;
+
+    /**
+     * @var BulkRepositoryRegistry
+     */
+    private $bulkRepositoryRegistry;
+
+    /**
+     * @var SearchCriteriaBuilder
+     */
+    private $searchCriteriaBuilder;
+
+    /**
      * Init dependencies.
      *
      * @param BulkStatus $bulkStatus
@@ -56,19 +73,27 @@ class BulkOperationsStatus implements BulkStatusInterface
      * @param BulkStatusDetailedFactory $bulkDetailedFactory
      * @param BulkStatusShortFactory $bulkShortFactory
      * @param \Magento\Framework\EntityManager\EntityManager $entityManager
+     * @param BulkRepositoryRegistry $bulkRepositoryRegistry
+     * @param SearchCriteriaBuilder $searchCriteriaBuilder
+     * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function __construct(
         BulkStatus $bulkStatus,
         CollectionFactory $operationCollection,
         BulkStatusDetailedFactory $bulkDetailedFactory,
         BulkStatusShortFactory $bulkShortFactory,
-        EntityManager $entityManager
+        EntityManager $entityManager,
+        BulkRepositoryRegistry $bulkRepositoryRegistry,
+        SearchCriteriaBuilder $searchCriteriaBuilder
     ) {
         $this->operationCollectionFactory = $operationCollection;
         $this->bulkStatus = $bulkStatus;
         $this->bulkDetailedFactory = $bulkDetailedFactory;
         $this->bulkShortFactory = $bulkShortFactory;
         $this->entityManager = $entityManager;
+        $this->bulkRepositoryRegistry = $bulkRepositoryRegistry;
+        $this->bulkSummaryRepository = $this->bulkRepositoryRegistry->getRepository();
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
     }
 
     /**
@@ -108,20 +133,17 @@ class BulkOperationsStatus implements BulkStatusInterface
      */
     public function getBulkDetailedStatus(string $bulkUuid): DetailedBulkOperationsStatusInterface
     {
-        $bulkSummary = $this->bulkDetailedFactory->create();
+        $bulkSummary = $this->bulkSummaryRepository->getBulkByUuid($bulkUuid);
+        $bulk = $this->bulkDetailedFactory->create(['data' => $bulkSummary->getData()]);
 
-        /** @var DetailedBulkOperationsStatusInterface $bulk */
-        $bulk = $this->entityManager->load($bulkSummary, $bulkUuid);
+        $searchCriteria = $this->searchCriteriaBuilder
+            ->addFilter("bulk_uuid", $bulkUuid, "eq")
+            ->create();
 
-        if ($bulk->getBulkId() === null) {
-            throw new NoSuchEntityException(
-                __(
-                    'Bulk uuid %bulkUuid not exist',
-                    ['bulkUuid' => $bulkUuid]
-                )
-            );
-        }
-        $operations = $this->operationCollectionFactory->create()->addFieldToFilter('bulk_uuid', $bulkUuid)->getItems();
+        $operations = $this->bulkSummaryRepository
+            ->getOperationsList($searchCriteria)
+            ->getItems();
+
         $bulk->setOperationsList($operations);
 
         return $bulk;
@@ -132,19 +154,17 @@ class BulkOperationsStatus implements BulkStatusInterface
      */
     public function getBulkShortStatus(string $bulkUuid): BulkOperationsStatusInterface
     {
-        $bulkSummary = $this->bulkShortFactory->create();
+        $bulkSummary = $this->bulkSummaryRepository->getBulkByUuid($bulkUuid);
+        $bulk = $this->bulkShortFactory->create(['data' => $bulkSummary->getData()]);
 
-        /** @var BulkOperationsStatusInterface $bulk */
-        $bulk = $this->entityManager->load($bulkSummary, $bulkUuid);
-        if ($bulk->getBulkId() === null) {
-            throw new NoSuchEntityException(
-                __(
-                    'Bulk uuid %bulkUuid not exist',
-                    ['bulkUuid' => $bulkUuid]
-                )
-            );
-        }
-        $operations = $this->operationCollectionFactory->create()->addFieldToFilter('bulk_uuid', $bulkUuid)->getItems();
+        $searchCriteria = $this->searchCriteriaBuilder
+            ->addFilter("bulk_uuid", $bulkUuid, "eq")
+            ->create();
+
+        $operations = $this->bulkSummaryRepository
+            ->getOperationsList($searchCriteria)
+            ->getItems();
+
         $bulk->setOperationsList($operations);
 
         return $bulk;
