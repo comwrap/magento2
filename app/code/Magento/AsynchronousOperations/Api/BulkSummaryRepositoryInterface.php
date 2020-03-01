@@ -56,4 +56,12 @@ interface BulkSummaryRepositoryInterface
      */
     public function getBulkByUuid(string $bulkUuid): BulkSummaryInterface;
 
+    /**
+     * Get list of bulks based on search criteria
+     *
+     * @param SearchCriteriaInterface $searchCriteria
+     * @return SearchResults
+     */
+    public function getBulksList(SearchCriteriaInterface $searchCriteria): SearchResults;
+
 }

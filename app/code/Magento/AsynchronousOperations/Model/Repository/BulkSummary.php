@@ -14,7 +14,9 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\AsynchronousOperations\Api\Data\BulkSummaryInterfaceFactory;
 use Magento\AsynchronousOperations\Api\Data\OperationInterfaceFactory;
 use Magento\Framework\Api\SearchCriteriaInterface;
+use Magento\AsynchronousOperations\Model\ResourceModel\Bulk\CollectionFactory as BulksCollectionFactory;
 use Magento\AsynchronousOperations\Model\ResourceModel\Operation\CollectionFactory as OperationsCollectionFactory;
+use Magento\AsynchronousOperations\Api\Data\BulkSearchResultsInterfaceFactory as BulkSearchResultFactory;
 use Magento\AsynchronousOperations\Api\Data\OperationSearchResultsInterfaceFactory as OperationSearchResultFactory;
 use Magento\Framework\Api\ExtensionAttribute\JoinProcessorInterface;
 use Magento\Framework\Api\SearchCriteria\CollectionProcessorInterface;
@@ -27,6 +29,11 @@ class BulkSummary implements BulkSummaryRepositoryInterface
      * @var CollectionProcessorInterface
      */
     private $collectionProcessor;
+
+    /**
+     * @var BulksCollectionFactory
+     */
+    private $bulksCollectionFactory;
 
     /**
      * @var OperationsCollectionFactory
@@ -59,6 +66,11 @@ class BulkSummary implements BulkSummaryRepositoryInterface
     private $joinProcessor;
 
     /**
+     * @var BulkSearchResultFactory
+     */
+    private $bulkSearchResultFactory;
+
+    /**
      * @var OperationSearchResultFactory
      */
     private $operationSearchResultFactory;
@@ -68,29 +80,35 @@ class BulkSummary implements BulkSummaryRepositoryInterface
      *
      * @param BulkSummaryResource $bulkSummaryResource
      * @param BulkSummaryInterfaceFactory $bulkSummaryFactory
-     * @param OperationResource $operationResource]
+     * @param OperationResource $operationResource
+     * @param BulksCollectionFactory $bulksCollectionFactory
      * @param OperationsCollectionFactory $operationsCollectionFactory
      * @param JoinProcessorInterface $joinProcessor
      * @param CollectionProcessorInterface $collectionProcessor
+     * @param BulkSearchResultFactory $bulkSearchResultFactory
      * @param OperationSearchResultFactory $operationSearchResultFactory
      * @param OperationInterfaceFactory $operationFactory
-    */
+     */
     public function __construct(
         BulkSummaryResource $bulkSummaryResource,
         BulkSummaryInterfaceFactory $bulkSummaryFactory,
         OperationResource $operationResource,
+        BulksCollectionFactory $bulksCollectionFactory,
         OperationsCollectionFactory $operationsCollectionFactory,
         JoinProcessorInterface $joinProcessor,
         CollectionProcessorInterface $collectionProcessor,
+        BulkSearchResultFactory $bulkSearchResultFactory,
         OperationSearchResultFactory $operationSearchResultFactory,
         OperationInterfaceFactory $operationFactory
     ) {
         $this->bulkSummaryResource = $bulkSummaryResource;
         $this->bulkSummaryFactory = $bulkSummaryFactory;
         $this->operationResource = $operationResource;
+        $this->bulksCollectionFactory = $bulksCollectionFactory;
         $this->operationsCollectionFactory = $operationsCollectionFactory;
         $this->joinProcessor = $joinProcessor;
         $this->collectionProcessor = $collectionProcessor;
+        $this->bulkSearchResultFactory = $bulkSearchResultFactory;
         $this->operationSearchResultFactory = $operationSearchResultFactory;
         $this->operationFactory = $operationFactory;
     }
@@ -158,5 +176,20 @@ class BulkSummary implements BulkSummaryRepositoryInterface
             throw new NoSuchEntityException(__('The Bulk summary with the "%1" UUID doesn\'t exist.', $bulkUuid));
         }
         return $bulkSummary;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getBulksList(SearchCriteriaInterface $searchCriteria): SearchResults
+    {
+        $searchResult = $this->bulkSearchResultFactory->create();
+        $collection = $this->bulksCollectionFactory->create();
+        $this->joinProcessor->process($collection, BulkSummaryInterface::class);
+        $this->collectionProcessor->process($searchCriteria, $collection);
+        $searchResult->setSearchCriteria($searchCriteria);
+        $searchResult->setTotalCount($collection->getSize());
+        $searchResult->setItems($collection->getItems());
+        return $searchResult;
     }
 }

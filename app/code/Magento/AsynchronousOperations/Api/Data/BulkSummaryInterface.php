@@ -11,7 +11,7 @@ namespace Magento\AsynchronousOperations\Api\Data;
  * @api
  * @since 100.2.0
  */
-interface BulkSummaryInterface extends \Magento\Framework\Bulk\BulkSummaryInterface
+interface BulkSummaryInterface extends \Magento\Framework\Bulk\BulkSummaryInterface, \Magento\Framework\Api\ExtensibleDataInterface
 {
     const USER_TYPE = 'user_type';
 

@@ -13,7 +13,7 @@ use Magento\Framework\Api\ExtensibleDataInterface;
 /**
  * Class BulkSummary
  */
-class BulkSummary extends AbstractModel implements BulkSummaryInterface, ExtensibleDataInterface
+class BulkSummary extends AbstractModel implements BulkSummaryInterface
 {
     public function _construct()
     {
